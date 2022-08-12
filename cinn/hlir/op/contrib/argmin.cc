@@ -97,7 +97,7 @@ Tensor Argmin(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
 //        loop_var, common::make_const(0), shape[real_axis], ir::ForType::Serial, ir::DeviceAPI::Host, body);
 //
 //    return ir::Load::Make(output, {shape[real_axis]});
-    return common::make_const(e->type(), 1);
+    return common::make_const(Int(32), 1);
   };
 
   Tensor res = Compute(output_shape, compute, output_name);

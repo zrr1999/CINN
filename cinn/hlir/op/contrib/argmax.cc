@@ -95,17 +95,18 @@ Tensor Argmax(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
     //    auto c_i = ir::Select::Make(update, Expr(loop_var), ir::Load::Make(max_index, {Expr(loop_var)}));
 
     Expr body1 = ir::Store::Make(temp_tensor, c_v, cur_indices);
-    Expr body2 = ir::Store::Make(max_index, c_i, {Expr(0)});
+    Expr body2 = ir::Store::Make(temp_tensor, c_i, last_indices);
 
-    Expr body = ir::Block::Make({body1, body2});
-
-    auto forloop = ir::For::Make(
-        loop_var, common::make_const(1), shape[real_axis] - 1, ir::ForType::Serial, ir::DeviceAPI::Host, body);
+//    Expr body = ir::Block::Make({body1, body2});
+//
+//    auto forloop = ir::For::Make(
+//        loop_var, common::make_const(1), shape[real_axis] - 1, ir::ForType::Serial, ir::DeviceAPI::Host, body);
 
     //    for (int i = 0; i<shape[real_axis]; i++){
     //    }
 
-    return ir::Load::Make(max_index, {Expr(0)});
+    return ir::Cast::Make(Int(32), ir::Load::Make(temp_tensor, last_indices));
+//    return ir::Load::Make(temp_tensor, {Expr(0)});
     //    return lang::Identity(eval_indices[0]);
     //    return ir::Load::Make(output, {shape[real_axis]-1});
   };
