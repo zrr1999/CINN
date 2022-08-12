@@ -52,13 +52,17 @@ Tensor Argmax(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
     output_shape.push_back(Expr(1));
   }
 
+  ir::Tensor temp_tensor(in_tensor);
   auto compute = [=](const std::vector<Expr> &indices) -> Expr {
-    std::vector<Expr> eval_indices(indices);
+    std::vector<Expr> cur_indices(indices);
+    std::vector<Expr> last_indices(indices);
 
     if (!keep_dims) {
-      eval_indices.insert(eval_indices.begin() + real_axis, Expr(1));
+      cur_indices.insert(cur_indices.begin() + real_axis, Expr(0));
+      last_indices.insert(last_indices.begin() + real_axis, Expr(0));
     }
-    CHECK_EQ(eval_indices.size(), ndim);
+    CHECK_EQ(cur_indices.size(), ndim);
+    CHECK_EQ(last_indices.size(), ndim);
 
     //    Var loop_var("k0");
     //    eval_indices[real_axis] = i;
@@ -70,39 +74,38 @@ Tensor Argmax(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
     //    current[1] = c2;
     //    auto for_loop = ir::For::Make(i, Expr(0), current[0]);
 
-    Placeholder<float> p_max_value("max_value", {shape[real_axis]});
-    Placeholder<int32_t> p_max_index("max_index", {shape[real_axis]});
-    auto max_value = ir::Tensor(p_max_value);
+    Placeholder<int32_t> p_max_index("max_index", {Expr(1)});
     auto max_index = ir::Tensor(p_max_index);
 
     //    max_value = lang::Identity(ir::Store::Make(min_value, Expr(-3.402823e+38f), {Expr(0)}));
 
     Var loop_var("k0", Int(32));
     Expr loop_expr          = Expr(loop_var);
-    eval_indices[real_axis] = Expr(loop_var);
+    cur_indices[real_axis]  = loop_expr;
+    last_indices[real_axis] = Expr(loop_var - 1);
 
-    auto value = lang::Identity(in_tensor(eval_indices));
+    auto value      = in_tensor(cur_indices);
+    auto last_value = temp_tensor(last_indices);
+    auto update     = ir::LT::Make(value, last_value);
 
-    CHECK_EQ(value->type(), Expr(0.0f)->type());
-    auto update = ir::LT::Make(value, Expr(0.0f));
     //    auto update             = ir::LT::Make(value, ir::Load::Make(max_value, {Expr(loop_var)}));
-    auto c_v = ir::Select::Make(update, value, Expr(0.0f));
-    auto c_i = ir::Select::Make(update, Expr(loop_var), Expr(0));
+    auto c_v = ir::Select::Make(update, value, last_value);
+    auto c_i = ir::Select::Make(update, loop_expr, Expr(0));
     //    auto c_v                = ir::Select::Make(update, value, ir::Load::Make(max_value, {Expr(loop_var)}));
     //    auto c_i = ir::Select::Make(update, Expr(loop_var), ir::Load::Make(max_index, {Expr(loop_var)}));
 
-    Expr body1 = ir::Store::Make(max_value, c_v, {Expr(loop_var) + 1});
-    // Expr body2 = ir::Store::Make(max_index, c_i, {Expr(loop_var)+1});
+    Expr body1 = ir::Store::Make(temp_tensor, c_v, cur_indices);
+    Expr body2 = ir::Store::Make(max_index, c_i, {Expr(0)});
 
-    Expr body = ir::Block::Make({body1});
+    Expr body = ir::Block::Make({body1, body2});
 
-    auto output = ir::For::Make(
-        loop_var, common::make_const(0), shape[real_axis] - 1, ir::ForType::Serial, ir::DeviceAPI::Host, body);
+    auto forloop = ir::For::Make(
+        loop_var, common::make_const(1), shape[real_axis] - 1, ir::ForType::Serial, ir::DeviceAPI::Host, body);
 
     //    for (int i = 0; i<shape[real_axis]; i++){
     //    }
 
-    return ir::Load::Make(output, {shape[real_axis] - 1});
+    return ir::Load::Make(max_index, {Expr(0)});
     //    return lang::Identity(eval_indices[0]);
     //    return ir::Load::Make(output, {shape[real_axis]-1});
   };
@@ -136,9 +139,8 @@ std::shared_ptr<framework::OpStrategy> StrategyForArgmax(const framework::NodeAt
     Expr in_expr = arg_packs[0];
     CHECK(in_expr.as_tensor());
     Tensor in_tensor = in_expr.as_tensor_ref();
-    auto stages      = CreateStages({in_tensor});
     auto out_tensor  = Argmax(in_tensor, axis, keep_dims, tensor_name);
-
+    auto stages      = CreateStages({in_tensor});
     stages->InsertLazily(out_tensor);
     std::vector<CINNValue> cinn_values{CINNValue(out_tensor), CINNValue(stages)};
     *ret = common::CINNValuePack{cinn_values};

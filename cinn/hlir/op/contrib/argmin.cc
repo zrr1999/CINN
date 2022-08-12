@@ -68,35 +68,36 @@ Tensor Argmin(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
     //    current[1]              = c2;
     //    auto for_loop           = ir::For::Make(i, Expr(0), current[0]);
 
-    Placeholder<float> p_min_value("min_value", {shape[real_axis]+1});
-    Placeholder<int32_t> p_min_index("min_index", {shape[real_axis]+1});
-    auto min_value = ir::Tensor(p_min_value);
-    auto min_index = ir::Tensor(p_min_index);
-
-    Var loop_var("k0", Int(32));
-    Expr loop_expr          = Expr(loop_var);
-    eval_indices[real_axis] = loop_expr;
-
-    auto value  = lang::Identity(in_tensor(eval_indices));
-    CHECK_EQ(min_value->type(), Float(32));
-//    ir::Store::Make(min_value, Expr(-3.402823e+38f), {Expr(int32_t(0))});
-
-//    auto update = ir::GT::Make(value, Expr(0));
-    auto update = ir::GT::Make(value, ir::Load::Make(min_value, {loop_expr}));
-    CHECK_EQ(min_index->type(), Int(32));
-    auto c_v    = ir::Select::Make(update, value, ir::Load::Make(min_value, {loop_expr}));
-    auto c_i    = ir::Select::Make(update, loop_expr, ir::Load::Make(min_index, {loop_expr}));
-
-    Expr init = ir::Store::Make(min_value, Expr(-3.402823e+38f), {Expr(int32_t(0))});
-    Expr body1 = ir::Store::Make(min_value, c_v, {loop_expr + 1});
-    Expr body2 = ir::Store::Make(min_index, c_i, {loop_expr + 1});
-
-    Expr body = ir::Block::Make({init, body1, body2});
-
-    auto output = ir::For::Make(
-        loop_var, common::make_const(0), shape[real_axis], ir::ForType::Serial, ir::DeviceAPI::Host, body);
-
-    return ir::Load::Make(output, {shape[real_axis]});
+//    Placeholder<float> p_min_value("min_value", {shape[real_axis]+1});
+//    Placeholder<int32_t> p_min_index("min_index", {shape[real_axis]+1});
+//    auto min_value = ir::Tensor(p_min_value);
+//    auto min_index = ir::Tensor(p_min_index);
+//
+//    Var loop_var("k0", Int(32));
+//    Expr loop_expr          = Expr(loop_var);
+//    eval_indices[real_axis] = loop_expr;
+//
+//    auto value  = lang::Identity(in_tensor(eval_indices));
+//    CHECK_EQ(min_value->type(), Float(32));
+////    ir::Store::Make(min_value, Expr(-3.402823e+38f), {Expr(int32_t(0))});
+//
+////    auto update = ir::GT::Make(value, Expr(0));
+//    auto update = ir::GT::Make(value, ir::Load::Make(min_value, {loop_expr}));
+//    CHECK_EQ(min_index->type(), Int(32));
+//    auto c_v    = ir::Select::Make(update, value, ir::Load::Make(min_value, {loop_expr}));
+//    auto c_i    = ir::Select::Make(update, loop_expr, ir::Load::Make(min_index, {loop_expr}));
+//
+//    Expr init = ir::Store::Make(min_value, Expr(-3.402823e+38f), {Expr(int32_t(0))});
+//    Expr body1 = ir::Store::Make(min_value, c_v, {loop_expr + 1});
+//    Expr body2 = ir::Store::Make(min_index, c_i, {loop_expr + 1});
+//
+//    Expr body = ir::Block::Make({init, body1, body2});
+//
+//    auto output = ir::For::Make(
+//        loop_var, common::make_const(0), shape[real_axis], ir::ForType::Serial, ir::DeviceAPI::Host, body);
+//
+//    return ir::Load::Make(output, {shape[real_axis]});
+    return common::make_const(e->type(), 1);
   };
 
   Tensor res = Compute(output_shape, compute, output_name);
