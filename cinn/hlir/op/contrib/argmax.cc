@@ -109,7 +109,6 @@ Tensor Argmax(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
 
     //        for (int i = 0; i<shape[real_axis]; i++){
     //        }
-    CHECK_EQ(forloop, ir::Load::Make(temp_tensor, last_indices));
     return ir::Cast::Make(Int(32), ir::Load::Make(temp_tensor, {Expr(0)}));
     //    return ir::Load::Make(temp_tensor, {Expr(0)});
     //    return lang::Identity(eval_indices[0]);
