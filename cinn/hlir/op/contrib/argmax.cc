@@ -52,7 +52,13 @@ Tensor Argmax(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
     output_shape.push_back(Expr(1));
   }
 
-  ir::Tensor temp_tensor(in_tensor);
+  auto temp_tensor = Compute({shape[real_axis]+1}, [=](const std::vector<Expr> &indices) -> Expr {
+    return lang::Identity(Expr(-3.402823e+38f));
+    //    return ir::Load::Make(temp_tensor, {Expr(0)});
+    //    return lang::Identity(eval_indices[0]);
+    //    return ir::Load::Make(output, {shape[real_axis]-1});
+  }, output_name + "_index");
+
   auto compute = [=](const std::vector<Expr> &indices) -> Expr {
     std::vector<Expr> cur_indices(indices);
     std::vector<Expr> last_indices(indices);
@@ -80,33 +86,32 @@ Tensor Argmax(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
     //    max_value = lang::Identity(ir::Store::Make(min_value, Expr(-3.402823e+38f), {Expr(0)}));
 
     Var loop_var("k0", Int(32));
-    Expr loop_expr          = Expr(loop_var);
-    cur_indices[real_axis]  = loop_expr;
-    last_indices[real_axis] = Expr(loop_var - 1);
+    cur_indices[real_axis]  = Expr(loop_var);
+    last_indices[real_axis] = Expr(loop_var) - 1;
 
     auto value      = in_tensor(cur_indices);
-    auto last_value = temp_tensor(last_indices);
+    auto last_value = in_tensor(last_indices);
     auto update     = ir::LT::Make(value, last_value);
 
     //    auto update             = ir::LT::Make(value, ir::Load::Make(max_value, {Expr(loop_var)}));
     auto c_v = ir::Select::Make(update, value, last_value);
-    auto c_i = ir::Select::Make(update, loop_expr, Expr(0));
+    auto c_i = ir::Select::Make(update, Expr(loop_var), Expr(0));
     //    auto c_v                = ir::Select::Make(update, value, ir::Load::Make(max_value, {Expr(loop_var)}));
     //    auto c_i = ir::Select::Make(update, Expr(loop_var), ir::Load::Make(max_index, {Expr(loop_var)}));
 
-    Expr body1 = ir::Store::Make(temp_tensor, c_v, cur_indices);
-    Expr body2 = ir::Store::Make(temp_tensor, c_i, last_indices);
+    Expr body1 = ir::Store::Make(temp_tensor, c_v, {Expr(loop_var)});
+    Expr body2 = ir::Store::Make(temp_tensor, c_i, {Expr(0)});
 
-//    Expr body = ir::Block::Make({body1, body2});
-//
-//    auto forloop = ir::For::Make(
-//        loop_var, common::make_const(1), shape[real_axis] - 1, ir::ForType::Serial, ir::DeviceAPI::Host, body);
+    Expr body = ir::Block::Make({body1, body2});
 
-    //    for (int i = 0; i<shape[real_axis]; i++){
-    //    }
+    auto forloop = ir::For::Make(
+        loop_var, common::make_const(1), shape[real_axis], ir::ForType::Serial, ir::DeviceAPI::Host, body);
 
-    return ir::Cast::Make(Int(32), ir::Load::Make(temp_tensor, last_indices));
-//    return ir::Load::Make(temp_tensor, {Expr(0)});
+    //        for (int i = 0; i<shape[real_axis]; i++){
+    //        }
+    CHECK_EQ(forloop, ir::Load::Make(temp_tensor, last_indices));
+    return ir::Cast::Make(Int(32), ir::Load::Make(temp_tensor, {Expr(0)}));
+    //    return ir::Load::Make(temp_tensor, {Expr(0)});
     //    return lang::Identity(eval_indices[0]);
     //    return ir::Load::Make(output, {shape[real_axis]-1});
   };
@@ -141,8 +146,7 @@ std::shared_ptr<framework::OpStrategy> StrategyForArgmax(const framework::NodeAt
     CHECK(in_expr.as_tensor());
     Tensor in_tensor = in_expr.as_tensor_ref();
     auto out_tensor  = Argmax(in_tensor, axis, keep_dims, tensor_name);
-    auto stages      = CreateStages({in_tensor});
-    stages->InsertLazily(out_tensor);
+    auto stages      = CreateStages({out_tensor});
     std::vector<CINNValue> cinn_values{CINNValue(out_tensor), CINNValue(stages)};
     *ret = common::CINNValuePack{cinn_values};
   });
@@ -217,20 +221,6 @@ std::vector<Type> InferDtypeForArgmax(const std::vector<Type> &inputs_type, cons
   return {Int(32)};
 }
 
-std::vector<std::vector<std::string>> InferLayoutForArgmax(const std::vector<framework::shape_t> &input_shapes,
-                                                           const std::vector<std::string> &input_layouts,
-                                                           const framework::NodeAttr &attrs,
-                                                           const Target &target) {
-  CHECK_EQ(input_layouts.size(), 1U) << "The input's layouts size is not 1! Please check again.";
-  std::vector<std::string> new_input_layouts = input_layouts;
-  if (input_shapes[0].size() > 4) {
-    // alter input layout back
-    new_input_layouts[0] = "NCHW";
-    VLOG(3) << "alter input layout from " << input_layouts[0] << " to " << new_input_layouts[0];
-  }
-
-  return {{""}, new_input_layouts};
-}
 }  // namespace op
 }  // namespace hlir
 }  // namespace cinn

@@ -68,36 +68,38 @@ Tensor Argmin(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
     //    current[1]              = c2;
     //    auto for_loop           = ir::For::Make(i, Expr(0), current[0]);
 
-//    Placeholder<float> p_min_value("min_value", {shape[real_axis]+1});
-//    Placeholder<int32_t> p_min_index("min_index", {shape[real_axis]+1});
-//    auto min_value = ir::Tensor(p_min_value);
-//    auto min_index = ir::Tensor(p_min_index);
-//
-//    Var loop_var("k0", Int(32));
-//    Expr loop_expr          = Expr(loop_var);
-//    eval_indices[real_axis] = loop_expr;
-//
-//    auto value  = lang::Identity(in_tensor(eval_indices));
-//    CHECK_EQ(min_value->type(), Float(32));
-////    ir::Store::Make(min_value, Expr(-3.402823e+38f), {Expr(int32_t(0))});
-//
-////    auto update = ir::GT::Make(value, Expr(0));
-//    auto update = ir::GT::Make(value, ir::Load::Make(min_value, {loop_expr}));
-//    CHECK_EQ(min_index->type(), Int(32));
-//    auto c_v    = ir::Select::Make(update, value, ir::Load::Make(min_value, {loop_expr}));
-//    auto c_i    = ir::Select::Make(update, loop_expr, ir::Load::Make(min_index, {loop_expr}));
-//
-//    Expr init = ir::Store::Make(min_value, Expr(-3.402823e+38f), {Expr(int32_t(0))});
-//    Expr body1 = ir::Store::Make(min_value, c_v, {loop_expr + 1});
-//    Expr body2 = ir::Store::Make(min_index, c_i, {loop_expr + 1});
-//
-//    Expr body = ir::Block::Make({init, body1, body2});
-//
-//    auto output = ir::For::Make(
-//        loop_var, common::make_const(0), shape[real_axis], ir::ForType::Serial, ir::DeviceAPI::Host, body);
-//
-//    return ir::Load::Make(output, {shape[real_axis]});
-    return common::make_const(Int(32), 1);
+    //    Placeholder<float> p_min_value("min_value", {shape[real_axis]+1});
+    //    Placeholder<int32_t> p_min_index("min_index", {shape[real_axis]+1});
+    //    auto min_value = ir::Tensor(p_min_value);
+    //    auto min_index = ir::Tensor(p_min_index);
+    //
+    //    Var loop_var("k0", Int(32));
+    //    Expr loop_expr          = Expr(loop_var);
+    //    eval_indices[real_axis] = loop_expr;
+    //
+    //    auto value  = lang::Identity(in_tensor(eval_indices));
+    //    CHECK_EQ(min_value->type(), Float(32));
+    ////    ir::Store::Make(min_value, Expr(-3.402823e+38f), {Expr(int32_t(0))});
+    //
+    ////    auto update = ir::GT::Make(value, Expr(0));
+    //    auto update = ir::GT::Make(value, ir::Load::Make(min_value, {loop_expr}));
+    //    CHECK_EQ(min_index->type(), Int(32));
+    //    auto c_v    = ir::Select::Make(update, value, ir::Load::Make(min_value, {loop_expr}));
+    //    auto c_i    = ir::Select::Make(update, loop_expr, ir::Load::Make(min_index, {loop_expr}));
+    //
+    //    Expr init = ir::Store::Make(min_value, Expr(-3.402823e+38f), {Expr(int32_t(0))});
+    //    Expr body1 = ir::Store::Make(min_value, c_v, {loop_expr + 1});
+    //    Expr body2 = ir::Store::Make(min_index, c_i, {loop_expr + 1});
+    //
+    //    Expr body = ir::Block::Make({init, body1, body2});
+    //
+    //    auto output = ir::For::Make(
+    //        loop_var, common::make_const(0), shape[real_axis], ir::ForType::Serial, ir::DeviceAPI::Host, body);
+    //
+    //    return ir::Load::Make(output, {shape[real_axis]});
+//    CHECK_EQ(lang::Identity(Expr(1)), Expr(10));
+        return lang::Identity(Expr(1));
+//    return ir::Cast::Make(int32_t , GetScalarExpr(10));
   };
 
   Tensor res = Compute(output_shape, compute, output_name);
@@ -129,10 +131,9 @@ std::shared_ptr<framework::OpStrategy> StrategyForArgmin(const framework::NodeAt
     Expr in_expr = arg_packs[0];
     CHECK(in_expr.as_tensor());
     Tensor in_tensor = in_expr.as_tensor_ref();
-    auto stages      = CreateStages({in_tensor});
     auto out_tensor  = Argmin(in_tensor, axis, keep_dims, tensor_name);
+    auto stages      = CreateStages({out_tensor});
 
-    stages->InsertLazily(out_tensor);
     std::vector<CINNValue> cinn_values{CINNValue(out_tensor), CINNValue(stages)};
     *ret = common::CINNValuePack{cinn_values};
   });
@@ -208,20 +209,6 @@ std::vector<Type> InferDtypeForArgmin(const std::vector<Type> &inputs_type, cons
   return {Int(32)};
 }
 
-std::vector<std::vector<std::string>> InferLayoutForArgmin(const std::vector<framework::shape_t> &input_shapes,
-                                                           const std::vector<std::string> &input_layouts,
-                                                           const framework::NodeAttr &attrs,
-                                                           const Target &target) {
-  CHECK_EQ(input_layouts.size(), 1U) << "The input's layouts size is not 1! Please check again.";
-  std::vector<std::string> new_input_layouts = input_layouts;
-  if (input_shapes[0].size() > 4) {
-    // alter input layout back
-    new_input_layouts[0] = "NCHW";
-    VLOG(3) << "alter input layout from " << input_layouts[0] << " to " << new_input_layouts[0];
-  }
-
-  return {{""}, new_input_layouts};
-}
 }  // namespace op
 }  // namespace hlir
 }  // namespace cinn
