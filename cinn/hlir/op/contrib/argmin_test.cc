@@ -53,6 +53,40 @@ TEST(GenerateCode_Cpu, Argmin_Keep) {
   VLOG(6) << code << std::endl;
 }
 
+TEST(GenerateCode_Cpu, Argmin) {
+  common::Context::Global().ResetNameId();
+
+  common::Target target = common::DefaultHostTarget();
+
+  int axis = 1;
+  ir::Expr n(4);
+  ir::Expr in_c(3);
+  ir::Expr h(28);
+  ir::Expr w(28);
+
+  lang::Placeholder<float> in("in", {n, in_c, h, w});
+  lang::Placeholder<float> out("out", {n, h, w});
+  ir::Tensor res = Argmin(in, axis, true, "test_argmin_in");
+
+  poly::StageMap stages = poly::CreateStages({res});
+  std::vector<ir::LoweredFunc> funcs =
+      lang::LowerVec("TestGenerateCodeCpu_Argmin", stages, {res}, {}, {}, nullptr, target, true);
+
+  VLOG(6) << "Expr before CPU codegen:";
+  VLOG(6) << funcs[0]->body;
+
+  ir::Module::Builder builder("Argmin_Module", target);
+  for (auto& f : funcs) {
+    builder.AddFunction(f);
+  }
+
+  backends::CodeGenCX86 codegen(target, backends::CodeGenCX86::Feature::AVX512);
+  codegen.SetInlineBuiltinCodes(false);
+  std::string code = codegen.Compile(builder.Build(), backends::CodeGenC::OutputKind::CImpl);
+  VLOG(6) << "Cpu Codegen result:";
+  VLOG(6) << code << std::endl;
+}
+
 }  // namespace op
 }  // namespace hlir
 }  // namespace cinn

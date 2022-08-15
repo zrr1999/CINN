@@ -52,6 +52,10 @@ Tensor Argmin(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
     output_shape.push_back(Expr(1));
   }
 
+  auto temp_tensor = Compute({shape[real_axis]+1}, [=](const std::vector<Expr> &indices) -> Expr {
+    return lang::Identity(Expr(-3.402823e+38f));
+  }, output_name + "_temp");
+
   auto compute = [=](const std::vector<Expr> &indices) -> Expr {
     std::vector<Expr> eval_indices(indices);
     if (!keep_dims) {
@@ -73,9 +77,9 @@ Tensor Argmin(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
     //    auto min_value = ir::Tensor(p_min_value);
     //    auto min_index = ir::Tensor(p_min_index);
     //
-    //    Var loop_var("k0", Int(32));
-    //    Expr loop_expr          = Expr(loop_var);
-    //    eval_indices[real_axis] = loop_expr;
+        Var loop_var("k0", Int(32));
+        Expr loop_expr          = Expr(loop_var);
+        eval_indices[real_axis] = loop_expr;
     //
     //    auto value  = lang::Identity(in_tensor(eval_indices));
     //    CHECK_EQ(min_value->type(), Float(32));
@@ -98,7 +102,7 @@ Tensor Argmin(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
     //
     //    return ir::Load::Make(output, {shape[real_axis]});
 //    CHECK_EQ(lang::Identity(Expr(1)), Expr(10));
-        return lang::Identity(Expr(1));
+        return lang::Identity(temp_tensor({Expr(0)}));
 //    return ir::Cast::Make(int32_t , GetScalarExpr(10));
   };
 

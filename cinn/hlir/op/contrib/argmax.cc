@@ -57,7 +57,7 @@ Tensor Argmax(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
     //    return ir::Load::Make(temp_tensor, {Expr(0)});
     //    return lang::Identity(eval_indices[0]);
     //    return ir::Load::Make(output, {shape[real_axis]-1});
-  }, output_name + "_index");
+  }, output_name + "_temp");
 
   auto compute = [=](const std::vector<Expr> &indices) -> Expr {
     std::vector<Expr> cur_indices(indices);
@@ -93,7 +93,6 @@ Tensor Argmax(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
     auto last_value = in_tensor(last_indices);
     auto update     = ir::LT::Make(value, last_value);
 
-    //    auto update             = ir::LT::Make(value, ir::Load::Make(max_value, {Expr(loop_var)}));
     auto c_v = ir::Select::Make(update, value, last_value);
     auto c_i = ir::Select::Make(update, Expr(loop_var), Expr(0));
     //    auto c_v                = ir::Select::Make(update, value, ir::Load::Make(max_value, {Expr(loop_var)}));
