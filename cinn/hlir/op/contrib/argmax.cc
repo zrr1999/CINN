@@ -52,12 +52,15 @@ Tensor Argmax(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
     output_shape.push_back(Expr(1));
   }
 
-  auto temp_tensor = Compute({shape[real_axis]+1}, [=](const std::vector<Expr> &indices) -> Expr {
-    return lang::Identity(Expr(-3.402823e+38f));
-    //    return ir::Load::Make(temp_tensor, {Expr(0)});
-    //    return lang::Identity(eval_indices[0]);
-    //    return ir::Load::Make(output, {shape[real_axis]-1});
-  }, output_name + "_temp");
+  auto temp_tensor = Compute(
+      {shape[real_axis] + 1},
+      [=](const std::vector<Expr> &indices) -> Expr {
+        return lang::Identity(Expr(-3.402823e+38f));
+        //    return ir::Load::Make(temp_tensor, {Expr(0)});
+        //    return lang::Identity(eval_indices[0]);
+        //    return ir::Load::Make(output, {shape[real_axis]-1});
+      },
+      output_name + "_temp");
 
   auto compute = [=](const std::vector<Expr> &indices) -> Expr {
     std::vector<Expr> cur_indices(indices);
@@ -80,7 +83,7 @@ Tensor Argmax(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
     //    current[1] = c2;
     //    auto for_loop = ir::For::Make(i, Expr(0), current[0]);
 
-    Placeholder<int32_t> p_max_index("max_index", {Expr(1)});
+    Placeholder<int32_t> p_max_index("max_index", {Expr(0)});
     auto max_index = ir::Tensor(p_max_index);
 
     //    max_value = lang::Identity(ir::Store::Make(min_value, Expr(-3.402823e+38f), {Expr(0)}));
@@ -94,7 +97,7 @@ Tensor Argmax(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
     auto update     = ir::LT::Make(value, last_value);
 
     auto c_v = ir::Select::Make(update, value, last_value);
-    auto c_i = ir::Select::Make(update, Expr(loop_var), Expr(0));
+    auto c_i = ir::Select::Make(update, Expr(loop_var), temp_tensor({Expr(0)}));
     //    auto c_v                = ir::Select::Make(update, value, ir::Load::Make(max_value, {Expr(loop_var)}));
     //    auto c_i = ir::Select::Make(update, Expr(loop_var), ir::Load::Make(max_index, {Expr(loop_var)}));
 

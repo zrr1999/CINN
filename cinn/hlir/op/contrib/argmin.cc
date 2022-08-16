@@ -57,10 +57,25 @@ Tensor Argmin(const Tensor &in_tensor, const int &axis, const bool keep_dims, co
   }, output_name + "_temp");
 
   auto compute = [=](const std::vector<Expr> &indices) -> Expr {
-    std::vector<Expr> eval_indices(indices);
+    std::vector<Expr> cur_indices(indices);
+    std::vector<Expr> last_indices(indices);
+
     if (!keep_dims) {
-      eval_indices.insert(eval_indices.begin() + real_axis, Expr(1));
+      cur_indices.insert(cur_indices.begin() + real_axis, Expr(0));
+      last_indices.insert(last_indices.begin() + real_axis, Expr(0));
     }
+    CHECK_EQ(cur_indices.size(), ndim);
+    CHECK_EQ(last_indices.size(), ndim);
+
+    Var loop_var("k0", Int(32));
+    cur_indices[real_axis]  = Expr(loop_var);
+    last_indices[real_axis] = Expr(loop_var) - 1;
+    auto value      = in_tensor(cur_indices);
+    auto last_value = in_tensor(last_indices);
+
+    auto update     = ir::LT::Make(value, last_value);
+    auto c_v = ir::Select::Make(update, value, last_value);
+    auto c_i = ir::Select::Make(update, Expr(loop_var), Expr(0));
 
     //    Var loop_var("k0");
     //    eval_indices[real_axis] = i;
