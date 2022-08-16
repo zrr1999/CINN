@@ -211,7 +211,7 @@ TEST(net_build, program_argmax_case1) {
 
   NetBuilder builder("net_builder");
   Placeholder input  = builder.CreateInput(Float(32), {N, IN_C, H, W}, "In");
-  Placeholder output = builder.CreateInput(Int(32), {N, OUT_C, H, W}, "Out");
+  Placeholder output = builder.Argmax(input, 0, true);
   auto program       = builder.Build();
 
   Target target = common::DefaultHostTarget();
@@ -281,7 +281,7 @@ TEST(net_build, program_argmax_case2) {
 
   NetBuilder builder("net_builder");
   Placeholder input  = builder.CreateInput(Float(32), {N, IN_C, H, W}, "In");
-  Placeholder output = builder.CreateInput(Int(32), {N, H, W}, "Out");
+  Placeholder output = builder.Argmax(input, 0, false);
   auto program       = builder.Build();
 
   Target target = common::DefaultHostTarget();
@@ -349,7 +349,7 @@ TEST(net_build, program_argmin_case1) {
 
   NetBuilder builder("net_builder");
   Placeholder input  = builder.CreateInput(Float(32), {N, IN_C, H, W}, "In");
-  Placeholder output = builder.CreateInput(Int(32), {N, OUT_C, H, W}, "Out");
+  Placeholder output = builder.Argmin(input, 0, true);
   auto program       = builder.Build();
 
   Target target = common::DefaultHostTarget();
@@ -419,7 +419,7 @@ TEST(net_build, program_argmin_case2) {
 
   NetBuilder builder("net_builder");
   Placeholder input  = builder.CreateInput(Float(32), {N, IN_C, H, W}, "In");
-  Placeholder output = builder.CreateInput(Int(32), {N, H, W}, "Out");
+  Placeholder output = builder.Argmin(input, 0, false);
   auto program       = builder.Build();
 
   Target target = common::DefaultHostTarget();

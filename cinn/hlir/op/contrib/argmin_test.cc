@@ -65,7 +65,7 @@ TEST(GenerateCode_Cpu, Argmin) {
   ir::Expr w(28);
 
   lang::Placeholder<float> in("in", {n, in_c, h, w});
-  lang::Placeholder<float> out("out", {n, h, w});
+  lang::Placeholder<int> out("out", {n, h, w});
   ir::Tensor res = Argmin(in, axis, true, "test_argmin_in");
 
   poly::StageMap stages = poly::CreateStages({res});
