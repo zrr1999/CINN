@@ -24,7 +24,11 @@
 
 namespace cinn {
 template <typename T>
-void SetRandData(hlir::framework::Tensor tensor, const common::Target& target, int seed = -1);
+void SetRandData(
+    hlir::framework::Tensor tensor, const common::Target& target, T mean = 0.f, T std = 1.f, int seed = -1);
+
+template <typename T>
+void SetRandData(hlir::framework::Tensor tensor, const common::Target& target, T min = 0, T max = 10, int seed = -1);
 
 template <typename T>
 std::vector<T> GetTensorData(const hlir::framework::Tensor& tensor, const common::Target& target);
